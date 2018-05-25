@@ -6,13 +6,13 @@ from joblib import Parallel, delayed
 # theta must also be a numpy array, the coefficients of each "basis" function
 # dof is implicitly calculated based on the first dimension of theta
 def drift(d_param, x):
-    evaluated_basis = np.zeros((dof.dim, x.shape[0], dof.dof))
-    out = np.zeros((x.shape[0], dof.dim))
+    evaluated_basis = np.zeros((ddd.dim, x.shape[0], ddd.dof))
+    out = np.zeros((x.shape[0], ddd.dim))
 
     # one dimension at a time, each row of x gets mapped to the hermite basis.
     # both dimensions of x are passed to the hermite function since the hermite
     # functions depend on all dimensions of x.
-    for i in range(dof.dim):
+    for i in range(ddd.dim):
         evaluated_basis[i, :, :] = hermite_basis(x)
         out[:, i] = np.sum(np.dot(evaluated_basis[i, :, :], d_param.theta[:, i]))
 
@@ -26,7 +26,7 @@ def brownianbridge(d_param, em_param, xin, tin):
     h12 = np.sqrt(h)
 
     # W ~ N(0, sqrt(h)*g)
-    wincs = np.random.multivariate_normal(mean = np.zeros(dof.dim), 
+    wincs = np.random.multivariate_normal(mean = np.zeros(ddd.dim), 
         cov = h * np.diag(np.square(d_param.gvec)), 
         size = em_param.numsubintervals)
     w = np.cumsum(wincs, axis = 0).T
@@ -43,15 +43,20 @@ def brownianbridge(d_param, em_param, xin, tin):
 
 # Girsanov likelihood is computed using # TODO: insert reference to the paper
 def girsanov(d_param, em_param, path, tdiff):
-	# path is of size (numsubintervals + 1, dim)
-	# b is of size (numsubintervals + 1, dim)
-	b = drift(d_param, path)
-	u = np.dot(np.diag(np.power(d_param.gvec, -2)), b.T).T
-	int1 = np.tensordot(u[:-1, :], np.diff(path, axis = 0))
-	u2 = np.einsum('ij,ji->i', u.T, b)
-	int2 = np.sum(0.5 * (u2[1:] + u2[:-1])) * (tdiff)
-	r = int1 - 0.5 * int2
-	return r
+    # path is of size (numsubintervals + 1, dim)
+    # b is of size (numsubintervals + 1, dim)
+    b = drift(d_param, path)
+    u = np.dot(np.diag(np.power(d_param.gvec, -2)), b.T).T
+    int1 = np.tensordot(u[:-1, :], np.diff(path, axis = 0))
+    u2 = np.einsum('ij,ji->i', u.T, b)
+    int2 = np.sum(0.5 * (u2[1:] + u2[:-1])) * (tdiff)
+    r = int1 - 0.5 * int2
+    return r
+
+def lasso_regularization(theta, x, threshold):
+    y = np.transpose(np.diff(x, axis = 0))
+    M = hermite_basis(x[:(-1)])
+    return theta
 
 # this function computes MCMC steps for i-th interval of the j-th time series
 # using Brownian bridge. The accept-reject step is computed using the Girsanov
@@ -59,16 +64,16 @@ def girsanov(d_param, em_param, path, tdiff):
 # are used to compute the mmat and rvec (E step) which are used to solve the system of 
 # equations producing the next iteration of theta (M step).
 def mcmc(allx, allt, d_param, em_param, path_index, step_index):
-    mmat = np.zeros((dof.dim, dof.dof, dof.dof))
-    rvec = np.zeros((dof.dim, dof.dof))
-    gammavec = np.zeros((dof.dim))
+    mmat = np.zeros((ddd.dim, ddd.dof, ddd.dof))
+    rvec = np.zeros((ddd.dim, ddd.dof))
+    gammavec = np.zeros((ddd.dim))
 
     # one time series, one interval, all dimensions at a time
     x = allx[path_index, step_index:(step_index + 2), :]
     t = allt[path_index, step_index:(step_index + 2)]
     tdiff = (t[1] - t[0]) / em_param.numsubintervals
 
-    samples = np.zeros((em_param.numsubintervals, dof.dim))
+    samples = np.zeros((em_param.numsubintervals, ddd.dim))
     _, xcur = brownianbridge(d_param, em_param, x, t)
     oldlik = girsanov(d_param, em_param, xcur, tdiff)
 
@@ -110,7 +115,7 @@ def mcmc(allx, allt, d_param, em_param, path_index, step_index):
 # to get the next iteration of theta (M-step). The function returns successfully if the
 # absolute error goes below specified tolerance. The function returns unsuccessfully if the
 # number of M-step iterations go beyond a threshold without reducing the error below tolerance.
-def em(allx, allt, em_param, d_param):
+def exp_max(allx, allt, em_param, d_param, reg_param):
     done = False
     numiter = 0
     error_list = []
@@ -119,8 +124,8 @@ def em(allx, allt, em_param, d_param):
     while (done == False):
         numiter = numiter + 1
         print(numiter)
-        mmat = np.zeros((dof.dim, dof.dof, dof.dof))
-        rvec = np.zeros((dof.dim, dof.dof))
+        mmat = np.zeros((ddd.dim, ddd.dof, ddd.dof))
+        rvec = np.zeros((ddd.dim, ddd.dof))
         # gammavec = 
         
         ## this parallelization is for all time series observations in 1 go
@@ -135,16 +140,21 @@ def em(allx, allt, em_param, d_param):
 
         newtheta = np.linalg.solve(mmat, rvec).T
 
-        # relative error
-        error = np.sum(np.abs(newtheta - d_param.theta)) / np.sum(np.abs(d_param.theta))
-
         # inducing sparsity in the Hermite space
         # type = {soft, hard} thresholding
         # the soft thresholding is an iterative process where each beta parameter gets updated while keeping
         # all other beta components fixed. This is iterated till convergence is reached
-        d_param.theta = regularization(theta = newtheta, threshold = 0.1, type = 'soft')
+        if (reg_param.reg_type == 'soft'):
+            reg_theta = lasso_regularization(theta = newtheta, x = allx, threshold = reg_param.threshold)
+        if (reg_param.reg_type == 'hard'):
+            reg_theta = newtheta
+            reg_theta[np.abs(reg_theta) < reg_param.threshold] = 0.
 
+        # relative error
+        error = np.sum(np.abs(reg_theta - d_param.theta)) / np.sum(np.abs(d_param.theta))
         error_list.append(error)
+
+        d_param.theta = reg_theta
         theta_list.append(d_param.theta)
         # if error is below tolerance, EM has converged
         if (error < em_param.tol):

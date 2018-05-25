@@ -104,3 +104,11 @@ def theta_sparsity(theta):
     theta[np.abs(theta) < threshold] = 0.
     return theta
 
+def compute_error(estimated, true, type = 'L2norm'):
+    if (type = 'L2norm'):
+        return (np.sqrt(np.sum(np.power(np.abs(true_theta.ordinary - estimated_theta.ordinary), 2))))
+
+    if (type = 'precision'):
+
+    if (type = 'recall'):
+        

@@ -1,32 +1,13 @@
 import numpy as np
 
-"""
-Sample equation is the simple oscillator
-dx = (alpha + beta x + gamma x^2) dt + g_1 dWt
-"""
-def system_drift(sim_param, x):
-    derivatives = np.zeros((x.shape[0], x.shape[1]))
-    derivatives[:, 0] = sim_param.alpha + sim_param.beta * x[:, 0] + sim_param.gamma * np.power(x[:, 0], 2)
-    return derivatives 
-
-def true_theta(sim_param):
-    theta = np.zeros((dof.dof, dof.dim))
-    theta[0, 0] = sim_param.alpha
-    theta[1, 0] = sim_param.beta
-    theta[2, 0] = sim_param.gamma
-    return theta
-
-def system_diffusion(sim_param):
-    return np.dot(sim_param.gvec, np.random.standard_normal(dof.dim))
-
 # create sample paths! 
 # this function creates a bunch of Euler-Maruyama paths from an array
 # of initial conditions
 def createpaths(euler_param, sim_param):
     h12 = np.sqrt(euler_param.h)
 
-    x = np.zeros(( euler_param.numpaths, (euler_param.savesteps + 1), dof.dim))
-    x_without_noise = np.zeros(( euler_param.numpaths, (euler_param.savesteps + 1), dof.dim ))
+    x = np.zeros(( euler_param.numpaths, (euler_param.savesteps + 1), ddd.dim))
+    x_without_noise = np.zeros(( euler_param.numpaths, (euler_param.savesteps + 1), ddd.dim ))
     t = np.zeros(( euler_param.numpaths, (euler_param.savesteps + 1) ))
 
     x[:, 0, :] = euler_param.ic

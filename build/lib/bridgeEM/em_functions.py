@@ -6,13 +6,13 @@ from joblib import Parallel, delayed
 # theta must also be a numpy array, the coefficients of each "basis" function
 # dof is implicitly calculated based on the first dimension of theta
 def drift(d_param, x):
-    evaluated_basis = np.zeros((dof.dim, x.shape[0], dof.dof))
-    out = np.zeros((x.shape[0], dof.dim))
+    evaluated_basis = np.zeros((ddd.dim, x.shape[0], ddd.dof))
+    out = np.zeros((x.shape[0], ddd.dim))
 
     # one dimension at a time, each row of x gets mapped to the hermite basis.
     # both dimensions of x are passed to the hermite function since the hermite
     # functions depend on all dimensions of x.
-    for i in range(dof.dim):
+    for i in range(ddd.dim):
         evaluated_basis[i, :, :] = hermite_basis(x)
         out[:, i] = np.sum(np.dot(evaluated_basis[i, :, :], d_param.theta[:, i]))
 
@@ -26,7 +26,7 @@ def brownianbridge(d_param, em_param, xin, tin):
     h12 = np.sqrt(h)
 
     # W ~ N(0, sqrt(h)*g)
-    wincs = np.random.multivariate_normal(mean = np.zeros(dof.dim), 
+    wincs = np.random.multivariate_normal(mean = np.zeros(ddd.dim), 
         cov = h * np.diag(np.square(d_param.gvec)), 
         size = em_param.numsubintervals)
     w = np.cumsum(wincs, axis = 0).T
@@ -53,22 +53,31 @@ def girsanov(d_param, em_param, path, tdiff):
 	r = int1 - 0.5 * int2
 	return r
 
+def lasso_reg(theta, threshold, type):
+    if (type == 'soft'):
+
+
+    if (type == 'hard'):
+        theta[np.abs(theta) < threshold] = 0.
+        
+    return theta
+
 # this function computes MCMC steps for i-th interval of the j-th time series
 # using Brownian bridge. The accept-reject step is computed using the Girsanov
 # likelihood function. First burnin steps are rejected and the next numsteps
 # are used to compute the mmat and rvec (E step) which are used to solve the system of 
 # equations producing the next iteration of theta (M step).
 def mcmc(allx, allt, d_param, em_param, path_index, step_index):
-    mmat = np.zeros((dof.dim, dof.dof, dof.dof))
-    rvec = np.zeros((dof.dim, dof.dof))
-    gammavec = np.zeros((dof.dim))
+    mmat = np.zeros((ddd.dim, ddd.dof, ddd.dof))
+    rvec = np.zeros((ddd.dim, ddd.dof))
+    gammavec = np.zeros((ddd.dim))
 
     # one time series, one interval, all dimensions at a time
     x = allx[path_index, step_index:(step_index + 2), :]
     t = allt[path_index, step_index:(step_index + 2)]
     tdiff = (t[1] - t[0]) / em_param.numsubintervals
 
-    samples = np.zeros((em_param.numsubintervals, dof.dim))
+    samples = np.zeros((em_param.numsubintervals, ddd.dim))
     _, xcur = brownianbridge(d_param, em_param, x, t)
     oldlik = girsanov(d_param, em_param, xcur, tdiff)
 
@@ -110,7 +119,7 @@ def mcmc(allx, allt, d_param, em_param, path_index, step_index):
 # to get the next iteration of theta (M-step). The function returns successfully if the
 # absolute error goes below specified tolerance. The function returns unsuccessfully if the
 # number of M-step iterations go beyond a threshold without reducing the error below tolerance.
-def em(allx, allt, em_param, d_param):
+def exp_max(allx, allt, em_param, d_param, reg_threshold):
     done = False
     numiter = 0
     error_list = []
@@ -119,8 +128,8 @@ def em(allx, allt, em_param, d_param):
     while (done == False):
         numiter = numiter + 1
         print(numiter)
-        mmat = np.zeros((dof.dim, dof.dof, dof.dof))
-        rvec = np.zeros((dof.dim, dof.dof))
+        mmat = np.zeros((ddd.dim, ddd.dof, ddd.dof))
+        rvec = np.zeros((ddd.dim, ddd.dof))
         # gammavec = 
         
         ## this parallelization is for all time series observations in 1 go
@@ -142,7 +151,7 @@ def em(allx, allt, em_param, d_param):
         # type = {soft, hard} thresholding
         # the soft thresholding is an iterative process where each beta parameter gets updated while keeping
         # all other beta components fixed. This is iterated till convergence is reached
-        d_param.theta = regularization(theta = newtheta, threshold = 0.1, type = 'soft')
+        d_param.theta = lasso_regularization(theta = newtheta, reg_threshold, type = 'soft')
 
         error_list.append(error)
         theta_list.append(d_param.theta)

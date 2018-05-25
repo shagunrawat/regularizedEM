@@ -9,4 +9,3 @@ setup(name='bridgeEM',
       author_email='shagunrawat27@gmail.com',
       packages=['bridgeEM'],
      )
-

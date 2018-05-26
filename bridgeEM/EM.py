@@ -30,7 +30,8 @@ error_list, theta_list = exp_max(x, t, em_param, data_param, reg_param)
 
 estimated_theta = theta_transformations(theta=theta_list[-1], theta_type='hermite')
 true_theta = theta_transformations(theta=dc.true_theta(sim_param), theta_type='ordinary')
+error_result = compute_errors(estimated_theta, true_theta, errors_computed = (True, True, True, True, True))
 
 # save to file
 with open('./varying_subintervals/tp_51/subint_' + str(parvalue) + '.pkl','wb') as f:
-    pickle.dump([x, t, error_list, theta_list, estimated_theta, true_theta, inferred_gvec, errors, em_param, data_param, euler_param, sim_param], f)
+    pickle.dump([x, t, error_list, theta_list, estimated_theta, true_theta, inferred_gvec, error_result, em_param, data_param, euler_param, sim_param, reg_param], f)

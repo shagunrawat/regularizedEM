@@ -19,3 +19,16 @@ def true_theta(sim_param):
 
 def system_diffusion(sim_param):
     return np.dot(sim_param.gvec, np.random.standard_normal(ddd.dim))
+
+def index_mapping():
+    index = 0
+    index_map = {}
+
+    for d in range(0, dof.degree):
+        for i in range(0, d + 1):
+            if (i == d):
+                index_set = (i)
+                index_map[index_set] = index
+                index += 1
+
+    return index_map

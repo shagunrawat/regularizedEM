@@ -23,9 +23,10 @@ print("Theta:", data_param.theta)
 # parvalue number of sub intervals
 # Note : numsubinterval = 1 => only observed data points, no intermediate brownian bridges
 em_param = exp_max_parameters(tol = 1e-2, burninpaths = 10, mcmcpaths = 100, numsubintervals = parvalue, niter = 100)
+reg_param = regularization_parameters(threshold = 0.1, reg_type = 'soft')
 
 # call to EM which returns the final error and estimated theta value
-error_list, theta_list = exp_max(x, t, em_param, data_param, reg_threshold = 0.1)
+error_list, theta_list = exp_max(x, t, em_param, data_param, reg_param)
 
 estimated_theta = theta_transformations(theta=theta_list[-1], theta_type='hermite')
 true_theta = theta_transformations(theta=dc.true_theta(sim_param), theta_type='ordinary')

@@ -1,5 +1,6 @@
 import numpy as np
 from joblib import Parallel, delayed
+from sklearn import linear_model
 
 # drift function using "basis" functions defined by mypoly
 # x must be a numpy array, the points at which the drift is to be evaluated
@@ -53,9 +54,11 @@ def girsanov(d_param, em_param, path, tdiff):
     r = int1 - 0.5 * int2
     return r
 
-def lasso_regularization(theta, x, threshold):
-    y = np.transpose(np.diff(x, axis = 0))
+def comparison(x, threshold, method_type = 'lasso'):
+    y = np.diff(x, axis = 0)
     M = hermite_basis(x[:(-1)])
+    clf = linear_model.Lasso(alpha = threshold)
+    clf.fit(M, y)
     return theta
 
 # this function computes MCMC steps for i-th interval of the j-th time series
@@ -102,10 +105,10 @@ def mcmc(allx, allt, d_param, em_param, path_index, step_index):
             arsamp[jj] = 1
 
         samples = xcur
-        pp = hermite_basis(samples[:(-1)])
-        mmat = mmat + tdiff * np.matmul(pp.T, pp) / em_param.mcmcpaths
-        rvec = rvec + np.matmul((np.diff(samples, axis = 0)).T, pp) / em_param.mcmcpaths   
-        gammavec = gammavec + np.sum(np.square(np.diff(samples, axis = 0) - tdiff * np.matmul(pp, d_param.theta)), axis = 0) / (tdiff * em_param.mcmcpaths * (em_param.numsubintervals * (allx.shape[1] - 1) + 1))
+        Hmat = hermite_basis(samples[:(-1)])
+        mmat = mmat + tdiff * np.matmul(Hmat.T, Hmat) / em_param.mcmcpaths
+        rvec = rvec + np.matmul((np.diff(samples, axis = 0)).T, Hmat) / em_param.mcmcpaths   
+        gammavec = gammavec + np.sum(np.square(np.diff(samples, axis = 0) - tdiff * np.matmul(Hmat, d_param.theta)), axis = 0) / (tdiff * em_param.mcmcpaths * em_param.numsubintervals * (allx.shape[1] - 1))
     meanSample = np.mean(arsamp)
     
     return (mmat, rvec, gammavec, meanBurnin, meanSample, path_index, step_index)
@@ -146,6 +149,7 @@ def exp_max(allx, allt, em_param, d_param, reg_param):
         # all other beta components fixed. This is iterated till convergence is reached
         if (reg_param.reg_type == 'soft'):
             reg_theta = lasso_regularization(theta = newtheta, x = allx, threshold = reg_param.threshold)
+
         if (reg_param.reg_type == 'hard'):
             reg_theta = newtheta
             reg_theta[np.abs(reg_theta) < reg_param.threshold] = 0.

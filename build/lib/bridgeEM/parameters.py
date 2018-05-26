@@ -50,3 +50,8 @@ class theta_transformations:
             self.hermite = theta
             # self.sparse_ordinary = theta_sparsity(self.ordinary)
             # self.sparse_hermite = theta_sparsity(self.hermite)
+
+class regularization_parameters():
+	def __init__(self, threshold, reg_type=None):
+		self.threshold = threshold
+		self.reg_type = reg_type

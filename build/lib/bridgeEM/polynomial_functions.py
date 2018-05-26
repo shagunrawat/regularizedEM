@@ -2,11 +2,11 @@ import numpy as np
 
 # defines polynomial basis functions {1, x, x^2, x^3}
 def polynomial_basis(x):
-    theta = np.full((x.shape[0], dof.dof), 1.)
+    theta = np.full((x.shape[0], ddd.dof), 1.)
     index_map = index_mapping()
 
     for index in index_map:
-        for d in range(dof.dim):
+        for d in range(ddd.dim):
             theta[:, index_map[index]] *= np.power(x[:, d], index[d])
 
     return theta
@@ -25,30 +25,15 @@ def H(degree, x):
 # x must be a numpy array, a column vector of points
 # (x = vector of points at which we seek to evaluate the basis functions)
 # dof is the number of degrees of freedom, i.e., the number of basis functions.
-
-# TODO : currently this loop has to be written separately for varying dimensions.
 def hermite_basis(x):
-    theta = np.full((x.shape[0], dof.dof), 1.)
+    theta = np.full((x.shape[0], ddd.dof), 1.)
     index_map = index_mapping()
 
     for index in index_map:
-        for d in range(dof.dim):
+        for d in range(ddd.dim):
             theta[:, index_map[index]] *= H(index[d], x[:, d])
 
     return theta
-
-def index_mapping():
-    index = 0
-    index_map = {}
-
-    for d in range(0, dof.degree):
-        for i in range(0, d + 1):
-            if (i == d):
-                index_set = (i)
-                index_map[index_set] = index
-                index += 1
-
-    return index_map
 
 def h2o_simple_transformation():
     mat = np.zeros((dof.degree, dof.degree))
@@ -62,22 +47,14 @@ def h2o_simple_transformation():
     return mat
 
 def h2o_transformation_matrix():
-    transformation = np.zeros((dof.dof, dof.dof))
+    transformation = np.zeros((ddd.dof, ddd.dof))
     index_map = index_mapping()
     index = 0
 
     mat = h2o_simple_transformation()
 
-    for d in range(0, dof.degree):
-        for i in range(0, d + 1):
-            if (i == d):
-                transformation[index, index] = mat[i, i]
-                if (i >= 2):
-                    new_index_set = (i - 2)
-                    new_index = index_map[new_index_set]
-                    transformation[new_index, index] = mat[i - 2, i]
+    for index in index_map:
 
-                index += 1
 
     return transformation
 
@@ -91,16 +68,11 @@ def ordinary_to_hermite(theta):
     hermite_theta = np.matmul(transformation, theta)
     return hermite_theta
 
-def norm_error(true_theta, estimated_theta):
-    errors = []
-    errors.append(np.sqrt(np.sum(np.power(np.abs(true_theta.ordinary - estimated_theta.ordinary), 2))))
-    errors.append(np.sqrt(np.sum(np.power(np.abs(true_theta.hermite - estimated_theta.hermite), 2))))
-    errors.append(np.sqrt(np.sum(np.power(np.abs(true_theta.sparse_ordinary - estimated_theta.sparse_ordinary), 2))))
-    errors.append(np.sqrt(np.sum(np.power(np.abs(true_theta.sparse_hermite - estimated_theta.sparse_hermite), 2))))
-    return errors
+def compute_error(estimated, true, type = 'L2norm'):
+    if (type = 'L2norm'):
+        return (np.sqrt(np.sum(np.power(np.abs(true - estimated), 2))))
 
-def theta_sparsity(theta):
-    threshold = 0.1 * np.max(np.abs(theta))
-    theta[np.abs(theta) < threshold] = 0.
-    return theta
+    if (type = 'precision'):
 
+    if (type = 'recall'):
+        
